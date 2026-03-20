@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>공지사항 게시판</title>
+</head>
+<body>
+<h1>📢 공지사항 목록</h1>
+
+<table border="1" style="border-collapse: collapse; text-align: center; width: 80%;">
+    <tr style="background-color: #eee;">
+        <th>글 번호</th>
+        <th>제목</th>
+        <th>내용</th>
+        <th>첨부파일</th> <th>관리</th>    </tr>
+
+    <tr th:each="notice : ${notices}">
+        <td th:text="${notice.id}">1</td>
+        <td th:text="${notice.title}">제목</td>
+        <td th:text="${notice.content}">내용</td>
+
+        <td>
+            <span th:text="${notice.fileName != null ? notice.fileName : '파일없음'}">파일없음</span>
+            <a th:if="${notice.fileName}" th:href="${notice.filePath}" target="_blank" style="color: green; font-weight: bold;"> [보기]</a>
+        </td>
+
+        <td>
+            <a th:href="@{/edit/{id}(id=${notice.id})}">
+                <button style="color: blue; cursor: pointer;">수정</button>
+            </a>
+            <a th:href="@{/delete/{id}(id=${notice.id})}" onclick="return confirm('정말 삭제하시겠습니까?')">
+                <button style="color: red; cursor: pointer;">삭제</button>
+            </a>
+        </td>
+    </tr>
+</table>
+
+<br>
+<a href="/write">
+    <button style="padding: 10px; font-size: 16px; cursor: pointer;">✏️ 공지사항 글쓰기</button>
+</a>
+
+</body>
+</html>
