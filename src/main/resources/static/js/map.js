@@ -1,8 +1,20 @@
-async function initSystem() {
+/**
+ * CM-World 지도 엔진 모듈
+ */
+let viewer;
+let globalDataSources = [];
+
+// 1. 초기화 함수
+async function initSystem(config) {
     try {
-        // 1. 뷰어 초기화 (Nginx를 통해 지형 로드)
+        console.log("지도 엔진 초기화 시작...");
+
+        // 서버에서 전달받은 토큰 설정
+        Cesium.Ion.defaultAccessToken = config.token;
+
+        // 2. 뷰어 초기화
         viewer = new Cesium.Viewer("map", {
-            terrainProvider: await Cesium.CesiumTerrainProvider.fromUrl(`/cmworld/map/demN`),
+            terrainProvider: await Cesium.CesiumTerrainProvider.fromUrl(config.terrainUrl),
             animation: false,
             timeline: false,
             infoBox: false,
@@ -13,21 +25,14 @@ async function initSystem() {
 
         viewer.shadows = false;
 
-        // 2. 모델 로드 (추후 이 부분을 DB API 호출로 바꿀 예정입니다)
-        // 현재는 Nginx 정적 경로에 파일이 있다고 가정합니다.
+        // 3. 모델 로드 (데이터셋 정의)
         const assets = [
-            {
-                name: 'hapgang',
-                // 바탕화면 폴더 내의 상대 경로가 '3ds테스트/hapgang/...' 일 경우
-                czml: '/local-data/hapgang/model_msl_af.czml'
-            },
-            {
-                name: 'dam',
-                czml: '/local-data/dam/model_eli_af.czml'
-            }
+            { name: 'hapgang', czml: '/local-data/hapgang/model_msl_af.czml' },
+            { name: 'dam',     czml: '/local-data/dam/model_eli_af.czml' }
         ];
 
-        document.getElementById('loading-status').innerText = "데이터 분석 중...";
+        // UI 업데이트용 헬퍼 함수 (에러 방지용)
+        updateStatus("데이터 분석 중...");
 
         for (const asset of assets) {
             const dataSource = await viewer.dataSources.add(
@@ -36,25 +41,36 @@ async function initSystem() {
             globalDataSources.push(dataSource);
         }
 
+        // 레이어 토글 이벤트 연결
         const toggleBtn = document.getElementById('layerToggle');
-        toggleBtn.disabled = false;
-        document.getElementById('layerLabel').innerText = "통합 레이어 표시 중";
-        document.getElementById('loading-status').innerText = "✅ 로드 완료";
+        if (toggleBtn) {
+            toggleBtn.disabled = false;
+            toggleBtn.addEventListener('change', (e) => {
+                globalDataSources.forEach(ds => ds.show = e.target.checked);
+            });
+            document.getElementById('layerLabel').innerText = "통합 레이어 표시 중";
+        }
 
-        toggleBtn.addEventListener('change', (e) => {
-            globalDataSources.forEach(ds => ds.show = e.target.checked);
-        });
-
-        zoomToLayer(0);
+        updateStatus("✅ 로드 완료");
+        zoomToLayer(0); // 초기 위치 이동
 
     } catch (error) {
         console.error("오류 발생:", error);
-        document.getElementById('loading-status').innerText = "❌ 로드 실패";
+        updateStatus("❌ 로드 실패");
     }
 }
 
+// 4. 레이어 이동 함수 (전역 범위 유지)
 function zoomToLayer(index) {
-    if (!viewer || !globalDataSources[index]) return;
-    const source = globalDataSources[index];
-    viewer.flyTo(source, { duration: 2.0 });
+    if (!viewer || !globalDataSources[index]) {
+        console.warn("데이터가 준비되지 않았습니다.");
+        return;
+    }
+    viewer.flyTo(globalDataSources[index], { duration: 2.0 });
+}
+
+// 5. UI 상태 업데이트 안전 함수
+function updateStatus(msg) {
+    const statusEl = document.getElementById('loading-status');
+    if (statusEl) statusEl.innerText = msg;
 }
