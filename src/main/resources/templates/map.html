@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="utf-8">
+    <title>CM-World | 통합 관리 시스템</title>
+    <!-- Cesium 리소스 -->
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #000; }
+        #map { width: 100vw; height: 100vh; }
+        #sidebar {
+            position: absolute; top: 0; left: 0; width: 280px; height: 100%;
+            background: rgba(15, 15, 15, 0.8); backdrop-filter: blur(12px);
+            border-right: 1px solid rgba(255, 255, 255, 0.1); color: white;
+            padding: 30px 20px; z-index: 1000; font-family: '맑은 고딕', sans-serif;
+            display: flex; flex-direction: column; box-sizing: border-box;
+        }
+        #sidebar h2 { font-size: 20px; color: #00e676; margin: 0 0 25px 0; padding-bottom: 10px; border-bottom: 2px solid rgba(0, 230, 118, 0.3); }
+        .menu-group { display: flex; flex-direction: column; gap: 12px; }
+        .menu-item { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 16px; cursor: pointer; transition: 0.25s; }
+        .menu-item:hover { background: rgba(0, 230, 118, 0.15); border-color: #00e676; transform: translateX(8px); }
+        .menu-item .title { font-weight: 700; font-size: 15px; color: #fff; }
+        .menu-item .desc { font-size: 12px; color: #999; }
+        #layer-control { margin-top: auto; padding: 20px 0; border-top: 1px solid rgba(255, 255, 255, 0.1); }
+        label { cursor: pointer; display: flex; align-items: center; font-size: 14px; color: #ddd; }
+        input[type="checkbox"] { margin-right: 12px; width: 18px; height: 18px; accent-color: #00e676; }
+        #loading-status { font-size: 12px; color: #00e676; margin-top: 5px; font-weight: bold; }
+
+        /* 로그아웃 버튼 추가 */
+        .logout-btn { margin-top: 10px; padding: 8px; background: #ff4d4d; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2>🌊 시설물 관리</h2>
+    <div class="menu-group">
+        <div class="menu-item" onclick="zoomToLayer(0)">
+            <span class="title">합강 캠핑장 이동</span>
+            <span class="desc">표준 해수면(MSL) 기준</span>
+        </div>
+        <div class="menu-item" onclick="zoomToLayer(1)">
+            <span class="title">감포댐 시설 이동</span>
+            <span class="desc">타원체(ELI) 기준 정밀 모델</span>
+        </div>
+    </div>
+
+    <div id="layer-control">
+        <label>
+            <input type="checkbox" id="layerToggle" checked disabled>
+            <span id="layerLabel">데이터 로드 대기 중...</span>
+        </label>
+        <div id="loading-status"></div>
+
+        <!-- 로그아웃 폼 -->
+        <form th:action="@{/logout}" method="post">
+            <button type="submit" class="logout-btn">로그아웃</button>
+        </form>
+    </div>
+</div>
+
+<div id="map"></div>
+
+<script>
+    // AccessToken은 보안상 서버에서 내려받거나 환경변수로 관리하는 게 좋지만, 일단 유지합니다.
+    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3ZWM3MzAxOC0wYmEyLTRjNmItYWRlNS1mMzJhYzQyZDI4ZDIiLCJpZCI6NDAyMTU1LCJpYXQiOjE3NzMyODE1MjB9.Iz8DulTfILSwhehiJCv7Of_goN3o9IghYqYD75rinIk";
+
+    let viewer;
+    let globalDataSources = [];
+
+    async function initSystem() {
+        try {
+            // 1. 뷰어 초기화 (Nginx를 통해 지형 로드)
+            viewer = new Cesium.Viewer("map", {
+                terrainProvider: await Cesium.CesiumTerrainProvider.fromUrl(`/cmworld/map/demN`),
+                animation: false,
+                timeline: false,
+                infoBox: false,
+                selectionIndicator: false,
+                navigationHelpButton: false,
+                baseLayerPicker: false
+            });
+
+            viewer.shadows = false;
+
+            // 2. 모델 로드 (추후 이 부분을 DB API 호출로 바꿀 예정입니다)
+            // 현재는 Nginx 정적 경로에 파일이 있다고 가정합니다.
+            const assets = [
+                {
+                    name: 'hapgang',
+                    // 바탕화면 폴더 내의 상대 경로가 '3ds테스트/hapgang/...' 일 경우
+                    czml: '/local-data/hapgang/model_msl_af.czml'
+                },
+                {
+                    name: 'dam',
+                    czml: '/local-data/dam/model_eli_af.czml'
+                }
+            ];
+
+            document.getElementById('loading-status').innerText = "데이터 분석 중...";
+
+            for (const asset of assets) {
+                const dataSource = await viewer.dataSources.add(
+                    Cesium.CzmlDataSource.load(asset.czml)
+                );
+                globalDataSources.push(dataSource);
+            }
+
+            const toggleBtn = document.getElementById('layerToggle');
+            toggleBtn.disabled = false;
+            document.getElementById('layerLabel').innerText = "통합 레이어 표시 중";
+            document.getElementById('loading-status').innerText = "✅ 로드 완료";
+
+            toggleBtn.addEventListener('change', (e) => {
+                globalDataSources.forEach(ds => ds.show = e.target.checked);
+            });
+
+            zoomToLayer(0);
+
+        } catch (error) {
+            console.error("오류 발생:", error);
+            document.getElementById('loading-status').innerText = "❌ 로드 실패";
+        }
+    }
+
+    function zoomToLayer(index) {
+        if (!viewer || !globalDataSources[index]) return;
+        const source = globalDataSources[index];
+        viewer.flyTo(source, { duration: 2.0 });
+    }
+
+    initSystem();
+</script>
+</body>
+</html>

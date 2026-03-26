@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>CM-World | Welcome</title>
+    <style>
+        body { background: #121212; color: #ececec; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .login-box { background: #1e1e1e; padding: 50px; border-radius: 15px; box-shadow: 0 15px 35px rgba(0,0,0,0.7); width: 400px; text-align: center; border: 1px solid #333; }
+        h1 { font-size: 2.5rem; margin-bottom: 10px; color: #0078d4; }
+        p { color: #888; margin-bottom: 30px; }
+        input { width: 100%; padding: 15px; margin-bottom: 20px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; box-sizing: border-box; font-size: 1rem; }
+        button { width: 100%; padding: 15px; background: #0078d4; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 1.1rem; font-weight: 600; transition: 0.3s; }
+        button:hover { background: #005a9e; transform: translateY(-2px); }
+        .error-msg { color: #ff5f5f; margin-bottom: 15px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<div class="login-box">
+    <h1>CM-World</h1>
+    <p>Digital Twin Assets Management</p>
+
+    <!-- 에러 메시지 처리 (로그인 실패 시) -->
+    <div th:if="${param.error}" class="error-msg">
+        아이디 또는 비밀번호가 일치하지 않습니다.
+    </div>
+
+    <form th:action="@{/login}" method="post">
+        <!-- 시큐리티 기본 설정상 name은 반드시 username과 password여야 합니다 -->
+        <input type="text" name="username" placeholder="ID" required autofocus>
+        <input type="password" name="password" placeholder="Password" required>
+        <button type="submit">ENTER SYSTEM</button>
+    </form>
+</div>
+</body>
+</html>
