@@ -64,15 +64,74 @@
 <div id="map"></div>
 
 <script>
-    const config = {
-        token: /*[[${accessToken}]]*/ "default_token",
-        terrainUrl: "/cmworld/map/demN"
-    };
+    // AccessToken은 보안상 서버에서 내려받거나 환경변수로 관리하는 게 좋지만, 일단 유지합니다.
+    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3ZWM3MzAxOC0wYmEyLTRjNmItYWRlNS1mMzJhYzQyZDI4ZDIiLCJpZCI6NDAyMTU1LCJpYXQiOjE3NzMyODE1MjB9.Iz8DulTfILSwhehiJCv7Of_goN3o9IghYqYD75rinIk";
 
-    // DOM이 완전히 로드된 후 지도 초기화 실행
-    document.addEventListener('DOMContentLoaded', () => {
-        initSystem(config);
-    });
+    let viewer;
+    let globalDataSources = [];
+
+    async function initSystem() {
+        try {
+            // 1. 뷰어 초기화 (Nginx를 통해 지형 로드)
+            viewer = new Cesium.Viewer("map", {
+                terrainProvider: await Cesium.CesiumTerrainProvider.fromUrl(`/cmworld/map/demN`),
+                animation: false,
+                timeline: false,
+                infoBox: false,
+                selectionIndicator: false,
+                navigationHelpButton: false,
+                baseLayerPicker: false
+            });
+
+            viewer.shadows = false;
+
+            // 2. 모델 로드 (추후 이 부분을 DB API 호출로 바꿀 예정입니다)
+            // 현재는 Nginx 정적 경로에 파일이 있다고 가정합니다.
+            const assets = [
+                {
+                    name: 'hapgang',
+                    // 바탕화면 폴더 내의 상대 경로가 '3ds테스트/hapgang/...' 일 경우
+                    czml: '/local-data/hapgang/model_msl_af.czml'
+                },
+                {
+                    name: 'dam',
+                    czml: '/local-data/dam/model_eli_af.czml'
+                }
+            ];
+
+            document.getElementById('loading-status').innerText = "데이터 분석 중...";
+
+            for (const asset of assets) {
+                const dataSource = await viewer.dataSources.add(
+                    Cesium.CzmlDataSource.load(asset.czml)
+                );
+                globalDataSources.push(dataSource);
+            }
+
+            const toggleBtn = document.getElementById('layerToggle');
+            toggleBtn.disabled = false;
+            document.getElementById('layerLabel').innerText = "통합 레이어 표시 중";
+            document.getElementById('loading-status').innerText = "✅ 로드 완료";
+
+            toggleBtn.addEventListener('change', (e) => {
+                globalDataSources.forEach(ds => ds.show = e.target.checked);
+            });
+
+            zoomToLayer(0);
+
+        } catch (error) {
+            console.error("오류 발생:", error);
+            document.getElementById('loading-status').innerText = "❌ 로드 실패";
+        }
+    }
+
+    function zoomToLayer(index) {
+        if (!viewer || !globalDataSources[index]) return;
+        const source = globalDataSources[index];
+        viewer.flyTo(source, { duration: 2.0 });
+    }
+
+    initSystem();
 </script>
 </body>
 </html>
