@@ -111,7 +111,7 @@
             const toggleBtn = document.getElementById('layerToggle');
             toggleBtn.disabled = false;
             document.getElementById('layerLabel').innerText = "통합 레이어 표시 중";
-            document.getElementById('loading-status').innerText = "✅ 로드 완료";
+            document.getElementById('loading-status').innerText = "로드 완료";
 
             toggleBtn.addEventListener('change', (e) => {
                 globalDataSources.forEach(ds => ds.show = e.target.checked);
@@ -121,7 +121,7 @@
 
         } catch (error) {
             console.error("오류 발생:", error);
-            document.getElementById('loading-status').innerText = "❌ 로드 실패";
+            document.getElementById('loading-status').innerText = "로드 실패";
         }
     }
 
